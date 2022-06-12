@@ -1,9 +1,8 @@
-const mongoose = require("mongoose");
+const { Schema, model } = require("mongoose");
 const bCrypt = require("bcryptjs");
+const Joi = require("joi");
 
-const Schema = mongoose.Schema;
-
-const userSchema = new Schema(
+const userSchema = Schema(
   {
     password: {
       type: String,
@@ -35,6 +34,11 @@ userSchema.methods.comparePassword = function (password) {
   return bCrypt.compareSync(password, this.password);
 };
 
-const User = mongoose.model("user", userSchema);
+const joiSchema = Joi.object({
+  password: Joi.string().required(),
+  email: Joi.string().required(),
+});
 
-module.exports = User;
+const User = model("user", userSchema);
+
+module.exports = { User, joiSchema };
