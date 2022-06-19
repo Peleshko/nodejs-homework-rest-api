@@ -2,11 +2,18 @@ const express = require("express");
 const router = express.Router();
 const jwt = require("jsonwebtoken");
 const passport = require("passport");
+const gravatar = require("gravatar");
+const path = require("path");
+const fs = require("fs").promises;
+const Jimp = require("jimp");
 const { User } = require("../../service/schemas/user");
+const { upload } = require("../../middlewares/upload");
 const { validateBody } = require("../../middlewares/validation");
 const { joiSchema } = require("../../service/schemas/user");
 require("dotenv").config();
 const secret = process.env.SECRET;
+
+const avatarsDir = path.join(__dirname, "../../", "public", "avatars");
 
 const auth = (req, res, next) => {
   passport.authenticate("jwt", { session: false }, (err, user) => {
@@ -24,7 +31,7 @@ const auth = (req, res, next) => {
 };
 
 router.post("/signup", validateBody(joiSchema), async (req, res, next) => {
-  const { username, email, password } = req.body;
+  const { email, password } = req.body;
   const user = await User.findOne({ email });
   if (user) {
     return res.status(409).json({
@@ -34,15 +41,23 @@ router.post("/signup", validateBody(joiSchema), async (req, res, next) => {
       data: "Conflict",
     });
   }
+
   try {
-    const newUser = new User({ username, email });
+    const avatarURL = gravatar.url(email, { s: 250 }, true);
+    const newUser = new User({ email, password, avatarURL });
     newUser.setPassword(password);
     await newUser.save();
+
     res.status(201).json({
       status: "success",
       code: 201,
       data: {
         message: "Registration successful",
+        user: {
+          email,
+          password,
+          avatarURL,
+        },
       },
     });
   } catch (error) {
@@ -68,18 +83,11 @@ router.post("/login", validateBody(joiSchema), async (req, res, next) => {
   };
 
   const token = jwt.sign(payload, secret, { expiresIn: "1h" });
-  await User.findByIdAndUpdate(user._id, { token });
+  await User.findByIdAndUpdate(user._id, { token, user });
 
   res.json({
     status: "OK",
     code: 200,
-    message: {
-      token: "exampletoken",
-      user: {
-        email: "example@example.com",
-        subscription: "starter",
-      },
-    },
     data: { token },
   });
 });
@@ -104,6 +112,23 @@ router.get("/logout", auth, async (req, res, next) => {
   await User.findByIdAndUpdate(_id, { token: null });
 
   res.status(204).json();
+});
+
+router.patch("/avatars", auth, upload.single("avatar"), async (req, res) => {
+  const { path: tempUpload, originalname } = req.file;
+
+  const { _id: id } = req.user;
+  const imageName = `${id}_${originalname}`;
+  try {
+    const resultUpload = path.join(avatarsDir, imageName);
+    await fs.rename(tempUpload, resultUpload);
+    const avatarURL = path.join("public", "avatars", imageName);
+    await User.findByIdAndUpdate(req.user._id, { avatarURL });
+    res.json({ avatarURL });
+  } catch (error) {
+    await fs.unlink(tempUpload);
+    throw error;
+  }
 });
 
 module.exports = router;
