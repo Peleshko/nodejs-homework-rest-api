@@ -26,6 +26,14 @@ const userSchema = Schema(
       type: String,
       required: true,
     },
+    verify: {
+      type: Boolean,
+      default: false,
+    },
+    verificationToken: {
+      type: String,
+      required: [true, "Verify token is required"],
+    },
   },
   { versionKey: false, timestamps: true }
 );
@@ -39,7 +47,7 @@ userSchema.methods.comparePassword = function (password) {
 };
 
 const joiSchema = Joi.object({
-  password: Joi.string().required(),
+  password: Joi.string().min(6).required(),
   email: Joi.string().required(),
 });
 

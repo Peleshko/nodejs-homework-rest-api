@@ -20,6 +20,7 @@ const contactSchema = Schema(
     owner: {
       type: Schema.Types.ObjectId,
       ref: "user",
+      required: true,
     },
   },
   { versionKey: false, timestamps: true }
@@ -31,10 +32,11 @@ const joiSchema = Joi.object({
   phone: Joi.string().required(),
   favorite: Joi.boolean(),
 });
-const Contact = model("contacts", contactSchema);
 
 const statusJoiSchema = Joi.object({
   favorite: Joi.boolean().required(),
 });
+
+const Contact = model("contacts", contactSchema);
 
 module.exports = { Contact, joiSchema, statusJoiSchema };
